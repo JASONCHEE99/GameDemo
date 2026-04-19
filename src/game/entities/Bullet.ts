@@ -6,12 +6,15 @@ export interface BulletOptions {
   height?: number
   color?: string
   damage?: number
+  glow?: number
 }
 
 // 子弹:玩家与敌方共用,以 vx/vy 决定方向。出屏自动 alive=false。
+// glow > 0 时使用 shadowBlur 渲染发光,用于高阶玩家子弹的视觉差异。
 export class Bullet extends Entity {
   damage: number
   color: string
+  glow: number
 
   constructor(
     x: number,
@@ -30,6 +33,7 @@ export class Bullet extends Entity {
     this.vy = vy
     this.color = opts.color ?? PLAYER_BULLET.color
     this.damage = opts.damage ?? PLAYER_BULLET.damage
+    this.glow = opts.glow ?? 0
   }
 
   update(dt: number): void {
@@ -46,7 +50,14 @@ export class Bullet extends Entity {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
+    if (this.glow > 0) {
+      ctx.shadowBlur = this.glow
+      ctx.shadowColor = this.color
+    }
     ctx.fillStyle = this.color
     ctx.fillRect(this.x, this.y, this.width, this.height)
+    if (this.glow > 0) {
+      ctx.shadowBlur = 0
+    }
   }
 }

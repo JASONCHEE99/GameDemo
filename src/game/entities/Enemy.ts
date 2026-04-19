@@ -11,11 +11,13 @@ import { Entity } from './Entity'
 
 // 敌机基类:hp / score / kind 由子类在构造时确定。子类自行实现 update 与 render。
 // update 接受可选的 enemyBullets 数组(供 Boss 写入开火),其他敌机忽略此参数。
+// speedMul 由难度系统在生成时注入,所有移动速度乘以该值。
 export abstract class Enemy extends Entity {
   hp: number
   score: number
   kind: EnemyKind
   color: string
+  speedMul: number
 
   constructor(
     x: number,
@@ -26,12 +28,14 @@ export abstract class Enemy extends Entity {
     score: number,
     kind: EnemyKind,
     color: string,
+    speedMul: number = 1,
   ) {
     super(x, y, width, height)
     this.hp = hp
     this.score = score
     this.kind = kind
     this.color = color
+    this.speedMul = speedMul
   }
 
   abstract update(dt: number, enemyBullets: Bullet[]): void
@@ -40,7 +44,7 @@ export abstract class Enemy extends Entity {
 
 // 小型:垂直下落,出底部即销毁。
 export class SmallEnemy extends Enemy {
-  constructor(x: number) {
+  constructor(x: number, speedMul: number = 1) {
     super(
       x,
       -ENEMY_SMALL.height,
@@ -50,11 +54,12 @@ export class SmallEnemy extends Enemy {
       ENEMY_SMALL.score,
       'small',
       ENEMY_SMALL.color,
+      speedMul,
     )
   }
 
   update(dt: number): void {
-    this.y += ENEMY_SMALL.speed * dt
+    this.y += ENEMY_SMALL.speed * this.speedMul * dt
     if (this.y > CANVAS.height) this.alive = false
   }
 
@@ -77,7 +82,7 @@ export class MediumEnemy extends Enemy {
   private baseX: number
   private timer = 0
 
-  constructor(baseX: number) {
+  constructor(baseX: number, speedMul: number = 1) {
     super(
       baseX,
       -ENEMY_MEDIUM.height,
@@ -87,13 +92,14 @@ export class MediumEnemy extends Enemy {
       ENEMY_MEDIUM.score,
       'medium',
       ENEMY_MEDIUM.color,
+      speedMul,
     )
     this.baseX = baseX
   }
 
   update(dt: number): void {
     this.timer += dt
-    this.y += ENEMY_MEDIUM.speed * dt
+    this.y += ENEMY_MEDIUM.speed * this.speedMul * dt
     const offset =
       Math.sin(this.timer * ENEMY_MEDIUM.frequency * Math.PI * 2) *
       ENEMY_MEDIUM.amplitude
@@ -128,7 +134,7 @@ export class BossEnemy extends Enemy {
   private patrolDir = 1
   private maxHp: number
 
-  constructor() {
+  constructor(speedMul: number = 1) {
     super(
       CANVAS.width / 2 - ENEMY_BOSS.width / 2,
       -ENEMY_BOSS.height,
@@ -138,13 +144,14 @@ export class BossEnemy extends Enemy {
       ENEMY_BOSS.score,
       'boss',
       ENEMY_BOSS.color,
+      speedMul,
     )
     this.maxHp = ENEMY_BOSS.hp
   }
 
   update(dt: number, enemyBullets: Bullet[]): void {
     if (this.phase === 'entering') {
-      this.y += ENEMY_BOSS.enterSpeed * dt
+      this.y += ENEMY_BOSS.enterSpeed * this.speedMul * dt
       if (this.y >= ENEMY_BOSS.hoverY) {
         this.y = ENEMY_BOSS.hoverY
         this.phase = 'patrol'
@@ -152,7 +159,7 @@ export class BossEnemy extends Enemy {
       return
     }
 
-    this.x += ENEMY_BOSS.patrolSpeed * this.patrolDir * dt
+    this.x += ENEMY_BOSS.patrolSpeed * this.speedMul * this.patrolDir * dt
     if (this.x <= 0) {
       this.x = 0
       this.patrolDir = 1

@@ -1,7 +1,19 @@
-import { CANVAS, PLAYER, PLAYER_BULLET } from '../config'
+import { useGameStore } from '../../store/gameStore'
+import { BULLET_TIERS, CANVAS, PLAYER, PLAYER_BULLET } from '../config'
 import type { InputState } from '../types'
 import { Bullet } from './Bullet'
 import { Entity } from './Entity'
+
+type BulletTier = (typeof BULLET_TIERS)[number]
+
+// 按当前分数返回对应子弹档位(取最后一个 threshold ≤ score 的条目)。
+function pickTier(score: number): BulletTier {
+  let chosen: BulletTier = BULLET_TIERS[0]
+  for (const t of BULLET_TIERS) {
+    if (score >= t.threshold) chosen = t
+  }
+  return chosen
+}
 
 const DIAGONAL = 1 / Math.SQRT2
 
@@ -63,18 +75,46 @@ export class Player extends Entity {
 
     this.fireCooldown -= dt
     if (this.fireCooldown <= 0) {
-      bullets.push(
-        new Bullet(
-          this.x + this.width / 2 - PLAYER_BULLET.width / 2,
-          this.y - PLAYER_BULLET.height,
-          0,
-          -PLAYER_BULLET.speed,
-        ),
-      )
+      this.fire(bullets)
       this.fireCooldown = PLAYER.fireInterval
     }
 
     this.flameTimer += dt
+  }
+
+  // 根据当前分数选择子弹档位:
+  //   spreadDeg === 0  → 多发并排直射(parallelGap 为相邻间距)
+  //   spreadDeg  >  0  → 等分扇形散射(角度 -spreadDeg ~ +spreadDeg)
+  private fire(bullets: Bullet[]): void {
+    const tier = pickTier(useGameStore.getState().score)
+    const cx = this.x + this.width / 2
+    const muzzleY = this.y - tier.height
+    const opts = {
+      width: tier.width,
+      height: tier.height,
+      color: tier.color,
+      damage: PLAYER_BULLET.damage,
+      glow: tier.glow,
+    }
+
+    if (tier.spreadDeg === 0) {
+      const startOffset = -((tier.count - 1) * tier.parallelGap) / 2
+      for (let i = 0; i < tier.count; i++) {
+        const x = cx - tier.width / 2 + startOffset + i * tier.parallelGap
+        bullets.push(new Bullet(x, muzzleY, 0, -PLAYER_BULLET.speed, opts))
+      }
+      return
+    }
+
+    for (let i = 0; i < tier.count; i++) {
+      const t = (i / (tier.count - 1)) * 2 - 1
+      const rad = (t * tier.spreadDeg * Math.PI) / 180
+      const vx = Math.sin(rad) * PLAYER_BULLET.speed
+      const vy = -Math.cos(rad) * PLAYER_BULLET.speed
+      bullets.push(
+        new Bullet(cx - tier.width / 2, muzzleY, vx, vy, opts),
+      )
+    }
   }
 
   render(ctx: CanvasRenderingContext2D): void {

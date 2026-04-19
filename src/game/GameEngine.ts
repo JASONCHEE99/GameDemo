@@ -4,6 +4,7 @@ import { Bullet } from './entities/Bullet'
 import type { Enemy } from './entities/Enemy'
 import { Player } from './entities/Player'
 import { CollisionSystem } from './systems/CollisionSystem'
+import { DifficultySystem } from './systems/DifficultySystem'
 import { EffectSystem } from './systems/EffectSystem'
 import { InputSystem } from './systems/InputSystem'
 import { ParticleSystem } from './systems/ParticleSystem'
@@ -21,6 +22,7 @@ export class GameEngine {
   private enemies: Enemy[] = []
   private enemyBullets: Bullet[] = []
   private spawnSystem = new SpawnSystem()
+  private difficulty = new DifficultySystem()
   private particles = new ParticleSystem()
   private effects = new EffectSystem()
   private rafId = 0
@@ -95,6 +97,7 @@ export class GameEngine {
     this.enemies = []
     this.enemyBullets = []
     this.spawnSystem.reset()
+    this.difficulty.reset()
     this.particles.reset()
     this.effects.reset()
   }
@@ -106,7 +109,11 @@ export class GameEngine {
     for (const e of this.enemies) e.update(dt, this.enemyBullets)
     for (const b of this.enemyBullets) b.update(dt)
 
-    this.spawnSystem.update(dt, this.enemies)
+    this.difficulty.update(dt)
+    this.spawnSystem.update(dt, this.enemies, {
+      spawn: this.difficulty.getSpawnMul(),
+      speed: this.difficulty.getSpeedMul(),
+    })
     this.particles.update(dt)
     this.effects.update(dt)
 
